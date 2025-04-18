@@ -31,19 +31,60 @@ document.addEventListener('DOMContentLoaded', () => {
   
   
   checkAuthStatus();
-  
-  function saveTokenInLocalStorage() {
-    const token = githubTokenInput.value.trim();
-    if (token) {
-      localStorage.setItem('githubToken', token);
+   function saveInLocalStorage(key,value) {
+    const data = value.trim();
+    if(data) {
+      localStorage.setItem(key, data);
     }
+   }
+   echoDataFromLocalStorage = (key) => {
+    const data = localStorage.getItem(key);
+    if(data) {
+      return data;
+    }
+    return null;
+   }
+  //  systemMessage userMessage
+   const arr =[ {
+    key: 'githubToken',
+    value: githubTokenInput.value
+   },
+  {
+    key: 'systemMessage',
+    value: systemMessage.value
+   },
+   {
+    key: 'userMessage',
+    value: userMessage.value
+   },
+  ];
+  function allSave(){
+    arr.map((item) => {
+      const {key, value} = item;
+      if(value) {
+        saveInLocalStorage(key, value);
+      }
+    })
   }
-  if (localStorage.getItem('githubToken')) {
-    githubTokenInput.value = localStorage.getItem('githubToken');
+  function allEcho(){
+    arr.map((item) => {
+      const {key, value} = item;
+      const data = echoDataFromLocalStorage(key);
+      if(data) {
+        if(key === 'githubToken') {
+          githubTokenInput.value = data;
+        } else if(key === 'systemMessage') {
+          systemMessage.value = data;
+        } else if(key === 'userMessage') {
+          userMessage.value = data;
+        }
+      }
+    })
   }
+  allEcho();
   githubAuthForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    saveTokenInLocalStorage();
+    allSave();
     const token = githubTokenInput.value.trim();
     
     if (!token) {
@@ -203,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+    allSave();
     const model = modelSelect.value;
     const system = systemMessage.value.trim();
     const user = userMessage.value.trim();
