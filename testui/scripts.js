@@ -51,22 +51,27 @@ document.addEventListener('DOMContentLoaded', () => {
    },
   {
     key: 'systemMessage',
-    value: systemMessage.value
+    value: ()=>systemMessage.value
    },
    {
     key: 'userMessage',
-    value: userMessage.value
+    value: ()=>userMessage.value
    },
   ];
   function allSave(){
     arr.map((item) => {
       const {key, value} = item;
       if(value) {
-        saveInLocalStorage(key, value);
+        if (typeof value === 'function') {
+          saveInLocalStorage(key, value());
+        } else {
+          saveInLocalStorage(key, value);
+        }
       }
     })
   }
   function allEcho(){
+    console.log('Echoing data from local storage');
     arr.map((item) => {
       const {key, value} = item;
       const data = echoDataFromLocalStorage(key);
@@ -84,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
   allEcho();
   githubAuthForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    allSave();
     const token = githubTokenInput.value.trim();
     
     if (!token) {
@@ -244,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     allSave();
     const model = modelSelect.value;
     const system = systemMessage.value.trim();
@@ -251,7 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const temperature = parseFloat(temperatureInput.value);
     const top_p = parseFloat(topPInput.value);
     const max_tokens = parseInt(maxTokensInput.value);
-    
+    const target = e.submitter.getAttribute('data-target');
+    if (target) {
+      console.log(`Submitting to target: ${target}`);
+    }
     if (!model) {
       alert('Please select a model');
       return;
