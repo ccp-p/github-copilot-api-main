@@ -1,538 +1,392 @@
-document.addEventListener('DOMContentLoaded', () => {
-  
-  const authStatus = document.getElementById('auth-status');
-  const githubAuthForm = document.getElementById('github-auth-form');
-  const githubTokenInput = document.getElementById('github-token');
-  const startDeviceFlowBtn = document.getElementById('start-device-flow');
-  const checkDeviceFlowBtn = document.getElementById('check-device-flow');
-  const deviceCodeStart = document.getElementById('device-code-start');
-  const deviceCodePrompt = document.getElementById('device-code-prompt');
-  const userCodeDisplay = document.getElementById('user-code');
-  const cancelDeviceFlowBtn = document.getElementById('cancel-device-flow');
-  const deviceFlowStatus = document.getElementById('device-flow-status');
-  const deviceFlowMessage = document.getElementById('device-flow-message');
-  const fetchModelsBtn = document.getElementById('fetch-models');
-  const modelsContainer = document.getElementById('models-container');
-  const modelSelect = document.getElementById('model-select');
-  const chatForm = document.getElementById('chat-form');
-  const systemMessage = document.getElementById('system-message');
-  const userMessage = document.getElementById('user-message');
-  const temperatureInput = document.getElementById('temperature');
-  const topPInput = document.getElementById('top-p');
-  const maxTokensInput = document.getElementById('max-tokens');
-  const responseContainer = document.getElementById('response-container');
-  const responseLoading = document.getElementById('response-loading');
-  const responseContent = document.getElementById('response-content');
-  
-  
-  let deviceCode = null;
-  let deviceCodeExpiry = null;
-  let selectedModel = null;
-  
-  
-  checkAuthStatus();
-   function saveInLocalStorage(key,value) {
-    const data = value.trim();
-    if(data) {
-      localStorage.setItem(key, data);
-    }
-   }
-   echoDataFromLocalStorage = (key) => {
-    const data = localStorage.getItem(key);
-    if(data) {
-      return data;
-    }
-    return null;
-   }
-  //  systemMessage userMessage
-   const arr =[ {
-    key: 'githubToken',
-    value: githubTokenInput.value
-   },
-  {
-    key: 'systemMessage',
-    value: ()=>systemMessage.value
-   },
-   {
-    key: 'userMessage',
-    value: ()=>userMessage.value
-   },
-  ];
-  function allSave(){
-    arr.map((item) => {
-      const {key, value} = item;
-      if(value) {
-        if (typeof value === 'function') {
-          saveInLocalStorage(key, value());
-        } else {
-          saveInLocalStorage(key, value);
-        }
-      }
-    })
-  }
-  function allEcho(){
-    console.log('Echoing data from local storage');
-    arr.map((item) => {
-      const {key, value} = item;
-      const data = echoDataFromLocalStorage(key);
-      if(data) {
-        if(key === 'githubToken') {
-          githubTokenInput.value = data;
-        } else if(key === 'systemMessage') {
-          systemMessage.value = data;
-        } else if(key === 'userMessage') {
-          userMessage.value = data;
-        }
-      }
-    })
-  }
-  allEcho();
-  githubAuthForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const token = githubTokenInput.value.trim();
+class CopilotChat {
+  constructor() {
+    this.apiBaseUrl = 'http://localhost:3000/api';
+    this.isAuthenticated = false;
+    this.models = [];
+    this.currentToken = null;
     
-    if (!token) {
-      alert('Please enter a GitHub token');
-      return;
+    this.init();
+  }
+
+  async init() {
+    // 页面加载时自动尝试恢复会话
+    await this.tryRestoreSession();
+      this.restoreSystemMessage(); // 恢复系统消息
+          this.createSystemMessagePresets(); // 创建预设按钮
+
+    this.setupEventListeners();
+  }
+    // 新增：清除所有缓存数据
+  clearAllCache() {
+    localStorage.removeItem('github_token');
+    localStorage.removeItem('system_message');
+    this.isAuthenticated = false;
+    this.currentToken = null;
+    this.defaultSystemMessage = '';
+    
+    // 重置界面
+    const systemMessageElement = document.getElementById('system-message');
+    if (systemMessageElement) {
+      systemMessageElement.value = '';
     }
     
+    this.updateUI();
+  }
+    // 在 createQuickAuthButton 方法中添加清除缓存按钮
+  createQuickAuthButton() {
+    const authCard = document.querySelector('.card:first-child .card-body');
+    const quickAuthDiv = document.createElement('div');
+    quickAuthDiv.className = 'mt-3 pt-3 border-top';
+    quickAuthDiv.innerHTML = `
+      <p class="text-muted mb-2">Quick access (if you have a token):</p>
+      <div class="input-group mb-2">
+        <input type="password" class="form-control" id="quick-token" placeholder="Paste token here">
+        <button class="btn btn-outline-primary" type="button" id="quick-auth">Go</button>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" type="button" id="clear-cache">Clear All Cache</button>
+    `;
+    authCard.appendChild(quickAuthDiv);
+
+    // 快速认证事件
+    document.getElementById('quick-auth').addEventListener('click', async () => {
+      const token = document.getElementById('quick-token').value;
+      if (token) {
+        try {
+          await this.authenticateWithToken(token);
+          document.getElementById('quick-token').value = '';
+        } catch (error) {
+          alert('Quick auth failed: ' + error.message);
+        }
+      }
+    });
+
+    // 清除缓存事件
+    document.getElementById('clear-cache').addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all cached data?')) {
+        this.clearAllCache();
+        alert('Cache cleared successfully!');
+      }
+    });
+  }
+
+  // 尝试恢复之前保存的会话
+  async tryRestoreSession() {
+    const savedToken = localStorage.getItem('github_token');
+    if (savedToken) {
+      try {
+        await this.authenticateWithToken(savedToken, false);
+      } catch (error) {
+        console.log('Saved token expired, please re-authenticate');
+        localStorage.removeItem('github_token');
+      }
+    }
+  }
+
+  // 简化的认证流程
+  async authenticateWithToken(token, saveToken = true) {
     try {
-      const response = await fetch('/api/auth/github', {
+      const response = await fetch(`${this.apiBaseUrl}/auth/github`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       });
+
+      if (!response.ok) throw new Error('Authentication failed');
       
-      const data = await response.json();
+      const result = await response.json();
+      this.currentToken = result.token;
+      this.isAuthenticated = true;
       
-      if (response.ok) {
-        updateAuthStatus(true);
-        alert('Authentication successful!');
-        githubTokenInput.value = '';
-      } else {
-        throw new Error(data.error || 'Authentication failed');
-      }
-    } catch (error) {
-      alert(`Error: ${error.message}`);
-    }
-  });
-  
-  
-  startDeviceFlowBtn.addEventListener('click', async () => {
-    try {
-      const response = await fetch('/api/auth/device');
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to start device flow');
+      if (saveToken) {
+        localStorage.setItem('github_token', token);
       }
       
+      // 自动获取模型列表
+      await this.fetchModels();
+      this.updateUI();
       
-      deviceCode = data.data.device_code;
-      userCodeDisplay.textContent = data.data.user_code;
-      
-      
-      const expiresIn = data.data.expires_in || 900; 
-      deviceCodeExpiry = Date.now() + (expiresIn * 1000);
-      
-      
-      deviceCodeStart.classList.add('d-none');
-      deviceCodePrompt.classList.remove('d-none');
-      
+      return result;
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      throw error;
     }
-  });
-  
-  
-  checkDeviceFlowBtn.addEventListener('click', async () => {
-    if (!deviceCode) {
-      alert('No device code available. Please start the device flow again.');
-      resetDeviceFlow();
-      return;
-    }
-    
-    
-    if (deviceCodeExpiry && Date.now() > deviceCodeExpiry) {
-      alert('Device code has expired. Please start the device flow again.');
-      resetDeviceFlow();
-      return;
-    }
-    
+  }
+
+  // 自动获取模型
+  async fetchModels() {
     try {
-      
-      deviceFlowStatus.classList.remove('d-none');
-      deviceFlowStatus.classList.remove('alert-danger', 'alert-success');
-      deviceFlowStatus.classList.add('alert-secondary');
-      deviceFlowMessage.textContent = 'Checking authentication status...';
-      checkDeviceFlowBtn.disabled = true;
-      
-      
-      const response = await fetch('/api/auth/device/check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ device_code: deviceCode })
+      const response = await fetch(`${this.apiBaseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${this.currentToken}` }
       });
       
+      if (!response.ok) throw new Error('Failed to fetch models');
+      
       const data = await response.json();
-      
-      if (data.success && data.status === 'complete') {
-        
-        deviceFlowStatus.classList.remove('alert-secondary', 'alert-danger');
-        deviceFlowStatus.classList.add('alert-success');
-        deviceFlowMessage.textContent = 'Authentication successful!';
-        
-        setTimeout(() => {
-          resetDeviceFlow();
-          updateAuthStatus(true);
-        }, 2000);
-      } else if (data.error === 'authorization_pending') {
-        
-        deviceFlowStatus.classList.remove('alert-secondary', 'alert-danger');
-        deviceFlowStatus.classList.add('alert-warning');
-        deviceFlowMessage.textContent = 'Waiting for authorization. Please complete the process on GitHub.';
-        checkDeviceFlowBtn.disabled = false;
-      } else if (data.error === 'slow_down') {
-        
-        deviceFlowStatus.classList.remove('alert-secondary');
-        deviceFlowStatus.classList.add('alert-warning');
-        deviceFlowMessage.textContent = 'Too many requests. Please wait a moment before trying again.';
-        checkDeviceFlowBtn.disabled = false;
-      } else {
-        
-        deviceFlowStatus.classList.remove('alert-secondary');
-        deviceFlowStatus.classList.add('alert-danger');
-        deviceFlowMessage.textContent = data.error_description || 'An error occurred during authentication.';
-        checkDeviceFlowBtn.disabled = false;
-      }
-    } catch (error) {
-      deviceFlowStatus.classList.remove('alert-secondary');
-      deviceFlowStatus.classList.add('alert-danger');
-      deviceFlowMessage.textContent = `Error: ${error.message}`;
-      checkDeviceFlowBtn.disabled = false;
-    }
-  });
-  
-  
-  cancelDeviceFlowBtn.addEventListener('click', () => {
-    resetDeviceFlow();
-  });
-  
-  
-  fetchModelsBtn.addEventListener('click', async () => {
-    try {
-      modelsContainer.innerHTML = '<div class="text-center my-5"><div class="spinner-border"></div><p class="mt-3">Loading models...</p></div>';
-      
-      const response = await fetch('/api/models');
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch models');
-      }
-      
-      
-      console.log('Models data:', data.data);
-      
-      displayModels(data.data);
-      populateModelSelect(data.data);
+      this.models = data.data || [];
+      this.populateModelSelect();
     } catch (error) {
       console.error('Error fetching models:', error);
-      modelsContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
     }
-  });
-  
-  
-  chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  }
 
-    allSave();
-    const model = modelSelect.value;
-    const system = systemMessage.value.trim();
-    const user = userMessage.value.trim();
-    const temperature = parseFloat(temperatureInput.value);
-    const top_p = parseFloat(topPInput.value);
-    const max_tokens = parseInt(maxTokensInput.value);
-    const target = e.submitter.getAttribute('data-target');
-    if (target) {
-      console.log(`Submitting to target: ${target}`);
+  populateModelSelect() {
+    const modelSelect = document.getElementById('model-select');
+    modelSelect.innerHTML = '<option value="">Select a model</option>';
+    
+    this.models.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.id;
+      option.textContent = model.id;
+      modelSelect.appendChild(option);
+    });
+    
+    // 自动选择第一个可用模型
+    if (this.models.length > 0) {
+      // id claude-sonnet-4
+      const isClaudeModel = this.models.some(model => model.id === 'claude-sonnet-4');
+      const id = isClaudeModel ? 'claude-sonnet-4' : this.models[0].id;
+      modelSelect.value =id
+      modelSelect.disabled = false;
     }
-    if (!model) {
-      alert('Please select a model');
+  }
+
+  updateUI() {
+    // 更新认证状态
+    const authStatus = document.getElementById('auth-status');
+    const fetchModelsBtn = document.getElementById('fetch-models');
+    const chatForm = document.getElementById('chat-form');
+    const sendBtn = chatForm.querySelector('button[type="submit"]');
+
+    if (this.isAuthenticated) {
+      authStatus.textContent = 'Authenticated';
+      authStatus.className = 'badge bg-success';
+      fetchModelsBtn.disabled = false;
+      sendBtn.disabled = false;
+      
+      // 隐藏认证卡片，显示聊天界面
+      document.querySelector('.card:first-child').classList.add('d-none');
+    } else {
+      authStatus.textContent = 'Not Authenticated';
+      authStatus.className = 'badge bg-secondary';
+      fetchModelsBtn.disabled = true;
+      sendBtn.disabled = true;
+    }
+  }
+
+  setupEventListeners() {
+    // GitHub token 认证
+    document.getElementById('github-auth-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = document.getElementById('github-token').value;
+      
+      if (!token) return;
+      
+      try {
+        await this.authenticateWithToken(token);
+        // 清空输入框
+        document.getElementById('github-token').value = '';
+      } catch (error) {
+        alert('Authentication failed: ' + error.message);
+      }
+    });
+
+    // 聊天表单
+    document.getElementById('chat-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.sendMessage();
+    });
+
+    // 新增：System Message 自动保存
+    const systemMessageElement = document.getElementById('system-message');
+    if (systemMessageElement) {
+      // 当用户输入时自动保存（防抖处理）
+      let saveTimeout;
+      systemMessageElement.addEventListener('input', (e) => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+          this.saveSystemMessage(e.target.value);
+        }, 1000); // 1秒后保存
+      });
+
+      // 当失去焦点时立即保存
+      systemMessageElement.addEventListener('blur', (e) => {
+        clearTimeout(saveTimeout);
+        this.saveSystemMessage(e.target.value);
+      });
+    }
+
+    // 快速重新认证按钮
+    this.createQuickAuthButton();
+  }
+
+  // 新增：创建 System Message 预设功能
+  createSystemMessagePresets() {
+    const systemMessageContainer = document.getElementById('system-message').parentElement;
+    
+    // 创建预设按钮容器
+    const presetDiv = document.createElement('div');
+    presetDiv.className = 'mt-2';
+    presetDiv.innerHTML = `
+      <small class="text-muted">Quick presets:</small>
+      <div class="btn-group-sm mt-1" role="group">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="assistant">Assistant</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="coder">Coder</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="translator">Translator</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="clear">Clear</button>
+      </div>
+    `;
+    
+    systemMessageContainer.appendChild(presetDiv);
+
+    // 预设内容
+    const presets = {
+      assistant: "You are a helpful, harmless, and honest assistant.",
+      coder: "You are an expert programmer. Provide clean, efficient code with clear explanations.",
+      translator: "You are a professional translator. Translate text accurately while maintaining the original meaning and tone.",
+      clear: ""
+    };
+
+    // 添加点击事件
+    presetDiv.addEventListener('click', (e) => {
+      if (e.target.hasAttribute('data-preset')) {
+        const preset = e.target.getAttribute('data-preset');
+        const systemMessageElement = document.getElementById('system-message');
+        systemMessageElement.value = presets[preset];
+        this.saveSystemMessage(presets[preset]);
+        
+        // 更新按钮状态
+        presetDiv.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+      }
+    });
+  }
+
+ // 新增：恢复保存的 System Message
+  restoreSystemMessage() {
+    const savedSystemMessage = localStorage.getItem('system_message');
+    if (savedSystemMessage) {
+      const systemMessageElement = document.getElementById('system-message');
+      if (systemMessageElement) {
+        systemMessageElement.value = savedSystemMessage;
+        this.defaultSystemMessage = savedSystemMessage;
+      }
+    }
+  }
+
+  // 新增：保存 System Message
+  saveSystemMessage(message) {
+    localStorage.setItem('system_message', message);
+    this.defaultSystemMessage = message;
+  }
+  createQuickAuthButton() {
+    const authCard = document.querySelector('.card:first-child .card-body');
+    const quickAuthDiv = document.createElement('div');
+    quickAuthDiv.className = 'mt-3 pt-3 border-top';
+    quickAuthDiv.innerHTML = `
+      <p class="text-muted mb-2">Quick access (if you have a token):</p>
+      <div class="input-group">
+        <input type="password" class="form-control" id="quick-token" placeholder="Paste token here">
+        <button class="btn btn-outline-primary" type="button" id="quick-auth">Go</button>
+      </div>
+    `;
+    authCard.appendChild(quickAuthDiv);
+
+    document.getElementById('quick-auth').addEventListener('click', async () => {
+      const token = document.getElementById('quick-token').value;
+      if (token) {
+        try {
+          await this.authenticateWithToken(token);
+          document.getElementById('quick-token').value = '';
+        } catch (error) {
+          alert('Quick auth failed: ' + error.message);
+        }
+      }
+    });
+  }
+
+  async sendMessage() {
+    const model = document.getElementById('model-select').value;
+    const systemMessage = document.getElementById('system-message').value;
+    const userMessage = document.getElementById('user-message').value;
+    const temperature = parseFloat(document.getElementById('temperature').value);
+    const topP = parseFloat(document.getElementById('top-p').value);
+    const maxTokens = parseInt(document.getElementById('max-tokens').value);
+
+    if (!model || !userMessage) {
+      alert('Please select a model and enter a message');
       return;
     }
-    
-    if (!user) {
-      alert('Please enter a message');
-      return;
-    }
-    
-    
-    const messages = [
-      { role: 'system', content: system },
-      { role: 'user', content: user }
-    ];
-    
+
+    const responseContainer = document.getElementById('response-container');
+    const responseContent = document.getElementById('response-content');
+    const responseLoading = document.getElementById('response-loading');
+
+    responseContainer.classList.remove('d-none');
+    responseLoading.style.display = 'block';
+    responseContent.style.display = 'none';
+
     try {
-      
-      responseContainer.classList.remove('d-none');
-      responseLoading.classList.remove('d-none');
-      responseContent.classList.add('d-none');
-      responseContent.innerHTML = '';
-      
-      
-      const requestData = {
-        messages,
-        model,
-        temperature,
-        top_p,
-        max_tokens
-      };
-      
-      
-      const response = await fetch('/api/chat/completions', {
+      const messages = [];
+      if (systemMessage) {
+        messages.push({ role: 'system', content: systemMessage });
+      }
+      messages.push({ role: 'user', content: userMessage });
+
+      const response = await fetch(`${this.apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.currentToken}`
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          top_p: topP,
+          max_tokens: maxTokens,
+          stream: true
+        })
       });
-      
-      
+
+      if (!response.ok) throw new Error('Chat request failed');
+
+      responseLoading.style.display = 'none';
+      responseContent.style.display = 'block';
+      responseContent.innerHTML = '';
+
+      // 处理流式响应
       const reader = response.body.getReader();
-      let fullText = '';
-      
-      
+      const decoder = new TextDecoder();
+
       while (true) {
         const { done, value } = await reader.read();
-        
-        if (done) {
-          break;
-        }
-        
-        
-        const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n\n');
-        
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.substring(6);
-            
-            if (data === '[DONE]') {
-              continue;
-            }
-            
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
             try {
-              const parsed = JSON.parse(data);
-              
-              if (parsed.choices && parsed.choices[0].delta && parsed.choices[0].delta.content) {
-                const content = parsed.choices[0].delta.content;
-                fullText += content;
-                
-                
-                responseContent.innerHTML = marked.parse(fullText);
-                
-                
-                responseLoading.classList.add('d-none');
-                responseContent.classList.remove('d-none');
-                
-                
-                responseContent.scrollTop = responseContent.scrollHeight;
+              const data = JSON.parse(line.slice(6));
+              if (data.choices && data.choices[0].delta.content) {
+                responseContent.innerHTML += data.choices[0].delta.content;
               }
-            } catch (err) {
-              console.error('Error parsing chunk:', err);
+            } catch (e) {
+              // 忽略解析错误
             }
           }
         }
       }
-      
-      
-      responseContent.innerHTML = marked.parse(fullText);
-      responseLoading.classList.add('d-none');
-      responseContent.classList.remove('d-none');
-      
+
     } catch (error) {
-      responseLoading.classList.add('d-none');
-      responseContent.classList.remove('d-none');
+      responseLoading.style.display = 'none';
+      responseContent.style.display = 'block';
       responseContent.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
     }
-  });
-  
-  
-  
-  async function checkAuthStatus() {
-    try {
-      const response = await fetch('/api/auth/status');
-      const data = await response.json();
-      
-      if (data.success && data.hasToken && data.isValid) {
-        updateAuthStatus(true);
-      } else {
-        updateAuthStatus(false);
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      updateAuthStatus(false);
-    }
   }
-  
-  function updateAuthStatus(isAuthenticated) {
-    if (isAuthenticated) {
-      authStatus.textContent = 'Authenticated';
-      authStatus.classList.remove('bg-secondary', 'bg-danger');
-      authStatus.classList.add('bg-success');
-      
-      fetchModelsBtn.disabled = false;
-    } else {
-      authStatus.textContent = 'Not Authenticated';
-      authStatus.classList.remove('bg-success', 'bg-danger');
-      authStatus.classList.add('bg-secondary');
-      
-      fetchModelsBtn.disabled = true;
-      modelSelect.disabled = true;
-      chatForm.querySelector('button[type="submit"]').disabled = true;
-    }
-  }
-  
-  function resetDeviceFlow() {
-    deviceCodeStart.classList.remove('d-none');
-    deviceCodePrompt.classList.add('d-none');
-    deviceFlowStatus.classList.add('d-none');
-    checkDeviceFlowBtn.disabled = false;
-    deviceCode = null;
-    deviceCodeExpiry = null;
-  }
-  
-  function displayModels(models) {
-    
-    if (!models) {
-      modelsContainer.innerHTML = '<div class="alert alert-warning">No models data received</div>';
-      return;
-    }
-    
-    
-    const modelsArray = Array.isArray(models) ? models : 
-                        (typeof models === 'object' ? [models] : []);
-    
-    if (modelsArray.length === 0) {
-      modelsContainer.innerHTML = '<div class="alert alert-warning">No models available</div>';
-      return;
-    }
-    
-    
-    const table = document.createElement('table');
-    table.className = 'table table-striped table-models';
-    
-    
-    const thead = document.createElement('thead');
-    thead.innerHTML = `
-      <tr>
-        <th>Model ID</th>
-        <th>Family</th>
-        <th>Max Tokens</th>
-        <th>Features</th>
-      </tr>
-    `;
-    table.appendChild(thead);
-    
-    
-    const tbody = document.createElement('tbody');
-    
-    modelsArray.forEach(model => {
-      
-      if (typeof model !== 'object' || model === null) return;
-      
-      const tr = document.createElement('tr');
-      
-      
-      const capabilities = [];
-      
-      
-      if (model.capabilities && typeof model.capabilities === 'object') {
-        
-        const family = model.capabilities.family || model.family || 'Unknown';
-        
-        
-        let maxTokens = 'Unknown';
-        if (model.capabilities.limits && model.capabilities.limits.max_output_tokens) {
-          maxTokens = model.capabilities.limits.max_output_tokens;
-        }
-        
-        
-        if (model.capabilities.type === 'chat') capabilities.push('Chat');
-        if (model.capabilities.type === 'embeddings') capabilities.push('Embeddings');
-        
-        const supports = model.capabilities.supports || {};
-        if (supports.vision) capabilities.push('Vision');
-        if (supports.tool_calls) capabilities.push('Tool Calls');
-        if (supports.streaming) capabilities.push('Streaming');
-        if (supports.parallel_tool_calls) capabilities.push('Parallel Tools');
-        if (supports.structured_outputs) capabilities.push('Structured Outputs');
-        
-        tr.innerHTML = `
-          <td>${model.id || 'Unknown'}</td>
-          <td>${family}</td>
-          <td>${maxTokens}</td>
-          <td>${capabilities.join(', ') || 'None'}</td>
-        `;
-      } else {
-        
-        if (Array.isArray(model.capabilities)) {
-          if (model.capabilities.includes('code_completion')) capabilities.push('Code');
-          if (model.capabilities.includes('embeddings')) capabilities.push('Embeddings');
-          if (model.capabilities.includes('chat')) capabilities.push('Chat');
-        }
-        
-        tr.innerHTML = `
-          <td>${model.id || 'Unknown'}</td>
-          <td>${model.family || 'Unknown'}</td>
-          <td>${model.limits?.max_tokens || 'Unknown'}</td>
-          <td>${capabilities.join(', ') || 'None'}</td>
-        `;
-      }
-      
-      tbody.appendChild(tr);
-    });
-    
-    table.appendChild(tbody);
-    
-    
-    if (tbody.children.length === 0) {
-      modelsContainer.innerHTML = '<div class="alert alert-warning">No valid models found in the response</div>';
-      
-      const pre = document.createElement('pre');
-      pre.className = 'mt-3 p-3 bg-light';
-      pre.textContent = JSON.stringify(models, null, 2);
-      modelsContainer.appendChild(pre);
-      return;
-    }
-    
-    modelsContainer.innerHTML = '';
-    modelsContainer.appendChild(table);
-  }
-  
-  function populateModelSelect(models) {
-    
-    while (modelSelect.options.length > 1) {
-      modelSelect.remove(1);
-    }
-    
-    const modelsArray = Array.isArray(models) ? models : 
-                        (typeof models === 'object' ? [models] : []);
-    
-    modelsArray.forEach(model => {
-      if (model && model.id) {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = `${model.id}`;
-        modelSelect.appendChild(option);
-      }
-    });
-    
-    modelSelect.disabled = false;
-    chatForm.querySelector('button[type="submit"]').disabled = false;
-  }
-}); 
+}
+
+// 初始化应用
+document.addEventListener('DOMContentLoaded', () => {
+  new CopilotChat();
+});
