@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" font-size="100px">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星聚朋友活动页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .level-friend {
+            position: relative;
+            width: 7.36rem;
+            height: 6.26rem;
+            background-image: url('./1.jpg'); /* 请替换为实际图片路径 */
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-position: center;
+            margin: 0 auto;
+        }
+
+        .btn-claim {
+            position: absolute;
+            width: 1rem;
+            height: 0.34rem;
+            background: red;
+    
+        }
+
+     
+        /* 第一个按钮 - 全球通专属试驾礼 */
+        .btn-claim-1 {
+            top: 2.88rem;
+            left: 0.6rem;
+        }
+
+        /* 第二个按钮 - 全球通专属试驾礼 (下方) */
+        .btn-claim-2 {
+            top: 4.46rem;
+            left: 0.6rem;
+        }
+
+  
+
+  
+    </style>
+</head>
+<body>
+    <div class="level-friend">
+        <!-- 第一个按钮：立即领取 -->
+        <div class="btn-claim btn-claim-1" >
+        </div>
+        
+        <!-- 第二个按钮：立即领取 -->
+        <div class="btn-claim btn-claim-2" >
+        </div>
+    </div>
+
+    <script>
+         $('.btn-claim').click(function() {
+                const giftType = $(this).data('gift');
+                
+                if (giftType === 1) {
+                    console.log('领取礼品1');
+                    alert('正在为您领取智能辅助驾驶体验礼品...');
+                } else if (giftType === 2) {
+                    console.log('领取礼品2');
+                    alert('正在为您领取门店专属好礼...');
+                }
+            });
+    </script>
+</body>
+</html>
