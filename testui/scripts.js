@@ -9,6 +9,12 @@ class CopilotChat {
   }
 
   async init() {
+        // 初始化主题
+    this.initTheme();
+    // 创建主题切换按钮
+    this.createThemeToggle();
+    
+    
     // 页面加载时自动尝试恢复会话
     await this.tryRestoreSession();
       this.restoreSystemMessage(); // 恢复系统消息
@@ -31,6 +37,44 @@ class CopilotChat {
     }
     
     this.updateUI();
+  }
+    // 新增：初始化主题
+  initTheme() {
+    // 从 localStorage 获取保存的主题，或根据系统偏好设置
+    const savedTheme = localStorage.getItem('theme');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    this.currentTheme = savedTheme || systemTheme;
+    
+    this.applyTheme(this.currentTheme);
+  }
+
+  // 新增：应用主题
+  applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    this.currentTheme = theme;
+    localStorage.setItem('theme', theme);
+    
+    // 更新主题切换按钮图标
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.innerHTML = theme === 'dark' ? '☀️' : '🌙';
+      themeToggle.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+  }
+   // 新增：创建主题切换按钮
+  createThemeToggle() {
+    const themeToggle = document.createElement('button');
+    themeToggle.id = 'theme-toggle';
+    themeToggle.className = 'theme-toggle';
+    themeToggle.innerHTML = this.currentTheme === 'dark' ? '☀️' : '🌙';
+    themeToggle.title = this.currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    
+    themeToggle.addEventListener('click', () => {
+      const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+      this.applyTheme(newTheme);
+    });
+    
+    document.body.appendChild(themeToggle);
   }
     // 在 createQuickAuthButton 方法中添加清除缓存按钮
   createQuickAuthButton() {
