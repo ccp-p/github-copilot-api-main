@@ -130,7 +130,6 @@ class CopilotChat {
     // 创建预设管理界面
     const presetHTML = this.generatePresetHTML();
     presetDiv.innerHTML = presetHTML;
-    debugger
     systemMessageContainer.appendChild(presetDiv);
     
     // 绑定事件
@@ -535,87 +534,155 @@ class CopilotChat {
   }
 
 
-  async sendMessage() {
-    const model = document.getElementById('model-select').value;
-    const systemMessage = document.getElementById('system-message').value;
-    const userMessage = document.getElementById('user-message').value;
-    const temperature = parseFloat(document.getElementById('temperature').value);
-    const topP = parseFloat(document.getElementById('top-p').value);
-    const maxTokens = parseInt(document.getElementById('max-tokens').value);
+ async sendMessage() {
+  const model = document.getElementById('model-select').value;
+  const systemMessage = document.getElementById('system-message').value;
+  const userMessage = document.getElementById('user-message').value;
+  const temperature = parseFloat(document.getElementById('temperature').value);
+  const topP = parseFloat(document.getElementById('top-p').value);
+  const maxTokens = parseInt(document.getElementById('max-tokens').value);
 
-    if (!model || !userMessage) {
-      alert('Please select a model and enter a message');
-      return;
+  if (!model || !userMessage) {
+    alert('Please select a model and enter a message');
+    return;
+  }
+
+  const responseContainer = document.getElementById('response-container');
+  const responseContent = document.getElementById('response-content');
+  const responseLoading = document.getElementById('response-loading');
+
+  responseContainer.classList.remove('d-none');
+  responseLoading.style.display = 'block';
+  responseContent.style.display = 'none';
+
+  try {
+    const messages = [];
+    if (systemMessage) {
+      messages.push({ role: 'system', content: systemMessage });
     }
+    messages.push({ role: 'user', content: userMessage });
 
-    const responseContainer = document.getElementById('response-container');
-    const responseContent = document.getElementById('response-content');
-    const responseLoading = document.getElementById('response-loading');
+    const response = await fetch(`${this.apiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.currentToken}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        top_p: topP,
+        max_tokens: maxTokens,
+        stream: true
+      })
+    });
 
-    responseContainer.classList.remove('d-none');
-    responseLoading.style.display = 'block';
-    responseContent.style.display = 'none';
+    if (!response.ok) throw new Error('Chat request failed');
 
-    try {
-      const messages = [];
-      if (systemMessage) {
-        messages.push({ role: 'system', content: systemMessage });
-      }
-      messages.push({ role: 'user', content: userMessage });
+    responseLoading.style.display = 'none';
+    responseContent.style.display = 'block';
+    responseContent.innerHTML = '';
 
-      const response = await fetch(`${this.apiBaseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.currentToken}`
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature,
-          top_p: topP,
-          max_tokens: maxTokens,
-          stream: true
-        })
-      });
+    // 用于累积完整响应文本
+    let fullResponse = '';
+    
+    // 处理流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-      if (!response.ok) throw new Error('Chat request failed');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      responseLoading.style.display = 'none';
-      responseContent.style.display = 'block';
-      responseContent.innerHTML = '';
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
 
-      // 处理流式响应
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.choices && data.choices[0].delta.content) {
-                responseContent.innerHTML += data.choices[0].delta.content;
-              }
-            } catch (e) {
-              // 忽略解析错误
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.choices && data.choices[0].delta.content) {
+              fullResponse += data.choices[0].delta.content;
+              
+              // 实时渲染格式化内容
+              this.renderFormattedResponse(fullResponse, responseContent);
             }
+          } catch (e) {
+            // 忽略解析错误
           }
         }
       }
-
-    } catch (error) {
-      responseLoading.style.display = 'none';
-      responseContent.style.display = 'block';
-      responseContent.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
     }
+
+  } catch (error) {
+    responseLoading.style.display = 'none';
+    responseContent.style.display = 'block';
+    responseContent.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
   }
+}
+
+// 新增：格式化响应内容的渲染方法
+renderFormattedResponse(text, container) {
+  // 如果页面已经引入了 marked.js，使用 Markdown 渲染
+  if (typeof marked !== 'undefined') {
+    try {
+      const htmlContent = marked.parse(text);
+      container.innerHTML = `<div class="formatted-response">${htmlContent}</div>`;
+    } catch (error) {
+      // 如果 Markdown 解析失败，使用基础格式化
+      container.innerHTML = `<div class="formatted-response">${this.basicFormatText(text)}</div>`;
+    }
+  } else {
+    // 使用基础格式化
+    container.innerHTML = `<div class="formatted-response">${this.basicFormatText(text)}</div>`;
+  }
+  
+  // 自动滚动到底部
+  container.scrollTop = container.scrollHeight;
+}
+
+// 新增：基础文本格式化方法
+basicFormatText(text) {
+  return text
+    // 转义 HTML 特殊字符
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    
+    // 处理标题
+    .replace(/^### (.+)$/gm, '<h3 class="response-h3">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="response-h2">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="response-h1">$1</h1>')
+    
+    // 处理粗体和斜体
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    
+    // 处理代码块
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="code-block"><code class="language-$1">$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    
+    // 处理列表
+    .replace(/^- (.+)$/gm, '<li class="list-item">$1</li>')
+    .replace(/(<li class="list-item">.*<\/li>)/s, '<ul class="response-list">$1</ul>')
+    
+    // 处理表格（简单处理）
+    .replace(/\|(.+)\|/g, (match, content) => {
+      const cells = content.split('|').map(cell => `<td>${cell.trim()}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    })
+    
+    // 处理换行
+    .replace(/\n\n/g, '</p><p class="response-paragraph">')
+    .replace(/\n/g, '<br>')
+    
+    // 包装段落
+    .replace(/^/, '<p class="response-paragraph">')
+    .replace(/$/, '</p>');
+}
 }
 
 // 初始化应用
