@@ -18,6 +18,7 @@ jobs:
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
+          source ~/.bash_profile
           cd /www/wwwroot/github-copilot-api-main
           git pull origin main
           npm install
