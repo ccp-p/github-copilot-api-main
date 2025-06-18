@@ -18,7 +18,7 @@ jobs:
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          cd /path/to/your/project/github-copilot-api-main
+          cd /www/wwwroot/github-copilot-api-main
           git pull origin main
           npm install
           pm2 restart copilot-api || pm2 start server.js --name copilot-api
