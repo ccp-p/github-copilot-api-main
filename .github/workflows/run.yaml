@@ -22,5 +22,5 @@ jobs:
           cd /www/wwwroot/github-copilot-api-main
           git pull origin main
           npm install
-          pm2 restart copilot-api || pm2 start server.js --name copilot-api
+          pm2 restart copilot-api || pm2 start "npm start" --name copilot-api
           echo "Deployment completed at $(date)"
