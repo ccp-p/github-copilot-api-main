@@ -1,0 +1,25 @@
+name: Auto Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          cd /www/wwwroot/github-copilot-api-main
+          git pull origin main
+          npm install
+          pm2 restart copilot-api || pm2 start server.js --name copilot-api
+          echo "Deployment completed at $(date)"
