@@ -11,10 +11,10 @@ class CopilotChat {
   getApiBaseUrl() {
     const hostname = window.location.hostname;
     
-    // 本地开发环境
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:3000/api';
-    }
+    // // 本地开发环境
+    // if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    //   return 'http://localhost:3000/api';
+    // }
     
     // 线上环境 - 使用服务器 IP
     if (hostname === '8.134.32.71') {
