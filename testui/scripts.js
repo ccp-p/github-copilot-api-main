@@ -715,7 +715,7 @@ async sendMessage() {
     
     // 添加历史对话（只包含用户和助手的消息）
     this.conversationHistory.forEach(msg => {
-      if (msg.role === 'user' || msg.role === 'assistant') {
+      if (msg.role === 'user' ) {
         messages.push({ role: msg.role, content: msg.content });
       }
     });
