@@ -4,17 +4,98 @@ class CopilotChat {
     this.isAuthenticated = false;
     this.models = [];
     this.currentToken = null;
+        this.conversationHistory = []; // 新增：对话历史
+    this.maxHistoryLength = 50; // 新增：最大历史记录数
     
     this.init();
   }
+  // 新增：清除对话历史
+  clearConversationHistory() {
+    this.conversationHistory = [];
+    this.saveConversationHistory();
+    this.updateChatDisplay();
+  }
   
+  // 新增：保存对话历史到本地存储
+  saveConversationHistory() {
+    localStorage.setItem('conversation_history', JSON.stringify(this.conversationHistory));
+  }
+  
+  // 新增：从本地存储恢复对话历史
+  restoreConversationHistory() {
+    const saved = localStorage.getItem('conversation_history');
+    if (saved) {
+      try {
+        this.conversationHistory = JSON.parse(saved);
+        this.updateChatDisplay();
+      } catch (error) {
+        console.error('Failed to restore conversation history:', error);
+        this.conversationHistory = [];
+      }
+    }
+  }
+  
+  // 新增：添加消息到历史记录
+  addMessageToHistory(role, content) {
+    this.conversationHistory.push({
+      role,
+      content,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 限制历史记录长度
+    if (this.conversationHistory.length > this.maxHistoryLength * 2) {
+      this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+    }
+    
+    this.saveConversationHistory();
+  }
+  
+  // 新增：更新聊天界面显示
+  updateChatDisplay() {
+    const chatContainer = document.getElementById('chat-history');
+    if (!chatContainer) return;
+    
+    chatContainer.innerHTML = '';
+    
+    this.conversationHistory.forEach(message => {
+      if (message.role === 'user' || message.role === 'assistant') {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${message.role}-message`;
+        messageDiv.innerHTML = `
+          <div class="message-header">
+            <strong>${message.role === 'user' ? '👤 You' : '🤖 Assistant'}</strong>
+            <small class="text-muted">${new Date(message.timestamp).toLocaleTimeString()}</small>
+          </div>
+          <div class="message-content">${this.formatMessageContent(message.content)}</div>
+        `;
+        chatContainer.appendChild(messageDiv);
+      }
+    });
+    
+    // 滚动到底部
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+  
+  // 新增：格式化消息内容
+  formatMessageContent(content) {
+    if (typeof marked !== 'undefined') {
+      try {
+        return marked.parse(content);
+      } catch (error) {
+        return this.basicFormatText(content);
+      }
+    } else {
+      return this.basicFormatText(content);
+    }
+  }
   getApiBaseUrl() {
     const hostname = window.location.hostname;
     
     // // 本地开发环境
-    // if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    //   return 'http://localhost:3000/api';
-    // }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3000/api';
+    }
     
     // 线上环境 - 使用服务器 IP
     if (hostname === '8.134.32.71') {
@@ -24,21 +105,68 @@ class CopilotChat {
     // 默认使用当前域名的 3000 端口
     return `http://${hostname}:3000/api`;
   }
-  async init() {
-        // 初始化主题
-    this.initTheme();
-    // 创建主题切换按钮
-    this.createThemeToggle();
-    
-    // 加载自定义预设
-    window.presetManager.loadCustomPresets();
-    // 页面加载时自动尝试恢复会话
-    await this.tryRestoreSession();
-      this.restoreSystemMessage(); // 恢复系统消息
-      this.createSystemMessagePresets(); // 创建预设按钮
+async init() {
+  // 初始化主题
+  this.initTheme();
+  // 创建主题切换按钮
+  this.createThemeToggle();
+  
+  // 加载自定义预设
+  window.presetManager.loadCustomPresets();
+  // 页面加载时自动尝试恢复会话
+  await this.tryRestoreSession();
+  this.restoreSystemMessage(); // 恢复系统消息
+  this.restoreConversationHistory(); // 新增：恢复对话历史
+  this.createSystemMessagePresets(); // 创建预设按钮
+  this.createChatInterface(); // 新增：创建聊天界面
 
-    this.setupEventListeners();
-  }
+  this.setupEventListeners();
+}
+// 新增：创建聊天界面
+createChatInterface() {
+  // 在用户消息输入框上方添加聊天历史显示区域
+  const userMessageContainer = document.getElementById('user-message').parentElement;
+  
+  // 创建聊天历史容器
+  const chatHistoryContainer = document.createElement('div');
+  chatHistoryContainer.className = 'mb-3';
+  chatHistoryContainer.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="form-label mb-0">Chat History</label>
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-info btn-sm" id="toggle-history">
+          <i class="bi bi-eye"></i> Toggle History
+        </button>
+        <button type="button" class="btn btn-outline-warning btn-sm" id="clear-history">
+          <i class="bi bi-trash"></i> Clear History
+        </button>
+      </div>
+    </div>
+    <div id="chat-history" class="chat-history-container" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 1rem; background-color: var(--bs-body-bg);">
+      <p class="text-muted text-center">No conversation history yet. Start chatting!</p>
+    </div>
+  `;
+  
+  userMessageContainer.parentElement.insertBefore(chatHistoryContainer, userMessageContainer);
+  
+  // 绑定事件
+  document.getElementById('toggle-history').addEventListener('click', () => {
+    const historyContainer = document.getElementById('chat-history');
+    if (historyContainer.style.display === 'none') {
+      historyContainer.style.display = 'block';
+      document.getElementById('toggle-history').innerHTML = '<i class="bi bi-eye-slash"></i> Hide History';
+    } else {
+      historyContainer.style.display = 'none';
+      document.getElementById('toggle-history').innerHTML = '<i class="bi bi-eye"></i> Show History';
+    }
+  });
+  
+  document.getElementById('clear-history').addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear all conversation history?')) {
+      this.clearConversationHistory();
+    }
+  });
+}
     // 新增：清除所有缓存数据
   clearAllCache() {
     localStorage.removeItem('github_token');
@@ -550,7 +678,7 @@ class CopilotChat {
   }
 
 
- async sendMessage() {
+async sendMessage() {
   const model = document.getElementById('model-select').value;
   const systemMessage = document.getElementById('system-message').value;
   const userMessage = document.getElementById('user-message').value;
@@ -563,6 +691,10 @@ class CopilotChat {
     return;
   }
 
+  // 添加用户消息到历史记录
+  this.addMessageToHistory('user', userMessage);
+  this.updateChatDisplay();
+
   const responseContainer = document.getElementById('response-container');
   const responseContent = document.getElementById('response-content');
   const responseLoading = document.getElementById('response-loading');
@@ -571,12 +703,24 @@ class CopilotChat {
   responseLoading.style.display = 'block';
   responseContent.style.display = 'none';
 
+  // 清空用户输入框
+  document.getElementById('user-message').value = '';
+
   try {
+    // 构建包含历史对话的消息数组
     const messages = [];
+    
+    // 添加系统消息（如果有）
     if (systemMessage) {
       messages.push({ role: 'system', content: systemMessage });
     }
-    messages.push({ role: 'user', content: userMessage });
+    
+    // 添加历史对话（只包含用户和助手的消息）
+    this.conversationHistory.forEach(msg => {
+      if (msg.role === 'user' || msg.role === 'assistant') {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    });
 
     const response = await fetch(`${this.apiBaseUrl}/chat/completions`, {
       method: 'POST',
@@ -629,6 +773,12 @@ class CopilotChat {
           }
         }
       }
+    }
+    
+    // 添加助手响应到历史记录
+    if (fullResponse) {
+      this.addMessageToHistory('assistant', fullResponse);
+      this.updateChatDisplay();
     }
 
   } catch (error) {

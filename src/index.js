@@ -11,23 +11,9 @@ const chatRoutes = require('./routes/chat.routes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 // CORS 配置
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://8.134.32.71:3000',
-    'http://8.134.32.71',
-    'http://8.134.32.71:80',
-    // 添加您的实际域名
-    'https://your-domain.com'
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-};
 
-app.use(cors(corsOptions));
+
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
