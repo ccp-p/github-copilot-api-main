@@ -93,15 +93,13 @@ class CopilotChat {
     const hostname = window.location.hostname;
     
     // // 本地开发环境
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:3000/api';
-    }
+
     
     // 线上环境 - 使用服务器 IP
     if (hostname === '8.134.32.71') {
       return 'http://8.134.32.71:3000/api';
     }
-    
+    return 'http://8.134.32.71:3000/api';
     // 默认使用当前域名的 3000 端口
     return `http://${hostname}:3000/api`;
   }

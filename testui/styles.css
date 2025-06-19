@@ -668,49 +668,221 @@ hr {
   background: var(--text-secondary);
 }
 
+/* 聊天历史容器样式 */
 .chat-history-container {
   transition: all 0.3s ease;
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
 }
 
+/* 聊天消息基础样式 */
 .chat-message {
   margin-bottom: 1rem;
   padding: 0.75rem;
   border-radius: 0.5rem;
   border-left: 4px solid;
+  transition: all 0.3s ease;
 }
 
+/* 用户消息样式 */
 .user-message {
-  background-color: var(--bs-light);
-  border-left-color: var(--bs-primary);
+  background-color: var(--bg-secondary) !important;
+  border-left-color: var(--primary-color) !important;
+  color: var(--text-primary) !important;
 }
 
+/* 助手消息样式 */
 .assistant-message {
-  background-color: var(--bs-info-bg-subtle);
-  border-left-color: var(--bs-info);
+  background-color: var(--bg-tertiary) !important;
+  border-left-color: var(--info-color) !important;
+  color: var(--text-primary) !important;
 }
 
+/* 消息头部样式 */
 .message-header {
   display: flex;
-  justify-content: between;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
 }
 
-.message-content {
-  line-height: 1.6;
+.message-header strong {
+  color: var(--text-primary) !important;
+  font-weight: 600;
 }
 
+.message-header .text-muted {
+  color: var(--text-muted) !important;
+  font-size: 0.75rem;
+}
+
+/* 消息内容样式 */
+.message-content {
+  line-height: 1.6;
+  color: var(--text-primary) !important;
+}
+
+/* 消息内容中的代码块 */
 .message-content pre {
-  background-color: var(--bs-gray-100);
+  background-color: var(--code-bg) !important;
+  color: var(--text-primary) !important;
   padding: 0.5rem;
   border-radius: 0.25rem;
   overflow-x: auto;
+  border: 1px solid var(--border-color);
+  margin: 0.5rem 0;
 }
 
+/* 消息内容中的行内代码 */
 .message-content code {
-  background-color: var(--bs-gray-100);
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-size: 0.875em;
+  border: 1px solid var(--border-color);
+}
+
+/* 消息内容中的段落 */
+.message-content p {
+  margin-bottom: 0.5rem;
+  color: var(--text-primary) !important;
+}
+
+/* 消息内容中的列表 */
+.message-content ul,
+.message-content ol {
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.message-content li {
+  color: var(--text-primary) !important;
+  margin-bottom: 0.25rem;
+}
+
+/* 消息内容中的链接 */
+.message-content a {
+  color: var(--link-color) !important;
+  text-decoration: none;
+}
+
+.message-content a:hover {
+  color: var(--link-hover) !important;
+  text-decoration: underline;
+}
+
+/* 消息内容中的标题 */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+  color: var(--text-primary) !important;
+  margin: 0.75rem 0 0.5rem 0;
+}
+
+/* 消息内容中的引用 */
+.message-content blockquote {
+  border-left: 4px solid var(--primary-color);
+  margin: 0.5rem 0;
+  padding: 0.5rem 1rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary) !important;
+  border-radius: 0.25rem;
+}
+
+/* 消息内容中的表格 */
+.message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.message-content table th,
+.message-content table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary) !important;
+}
+
+.message-content table th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+}
+
+/* 聊天历史滚动条 */
+.chat-history-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-history-container::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.chat-history-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.chat-history-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* 空聊天历史提示 */
+.chat-history-container .text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* 聊天历史按钮组 */
+.chat-history-container + * .btn-group .btn {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.chat-history-container + * .btn-group .btn:hover {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--primary-color) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .chat-message {
+    padding: 0.5rem;
+  }
+  
+  .message-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .message-content {
+    font-size: 0.9rem;
+  }
+}
+
+/* 深色模式下的特殊样式调整 */
+[data-theme="dark"] .user-message {
+  background-color: rgba(31, 111, 235, 0.1) !important;
+}
+
+[data-theme="dark"] .assistant-message {
+  background-color: rgba(31, 111, 235, 0.05) !important;
+}
+
+[data-theme="dark"] .message-content pre {
+  background-color: #0d1117 !important;
+  border-color: #30363d !important;
+}
+
+[data-theme="dark"] .message-content code {
+  background-color: #21262d !important;
+  border-color: #30363d !important;
 }
