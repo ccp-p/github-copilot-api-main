@@ -274,6 +274,14 @@ createApp({
         this.scrollToBottom();
       });
       
+      // 添加一个空的助手消息用于流式更新
+      const assistantMessageIndex = this.messages.length;
+      this.messages.push({
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      });
+      
       try {
         // 准备消息内容
         let messageContent = userMessage;
@@ -300,8 +308,8 @@ createApp({
           { role: 'system', content: this.systemMessage }
         ];
         
-        // 添加历史消息（最近10条）
-        const recentMessages = this.messages.slice(-10).map(msg => ({
+        // 添加历史消息（最近10条，排除刚添加的空助手消息）
+        const recentMessages = this.messages.slice(-11, -1).map(msg => ({
           role: msg.role,
           content: msg.content
         }));
@@ -320,7 +328,7 @@ createApp({
             temperature: this.temperature,
             top_p: this.topP,
             max_tokens: this.maxTokens,
-            stream: false,
+            stream: true,
           }),
         });
         
@@ -328,15 +336,56 @@ createApp({
           throw new Error('API 请求失败');
         }
         
-        const data = await response.json();
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
         
-        // 添加助手回复
-        if (data.choices && data.choices[0]) {
-          this.messages.push({
-            role: 'assistant',
-            content: data.choices[0].message.content,
-            timestamp: new Date(),
-          });
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          // 保留最后一个可能不完整的行
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              
+              if (data === '[DONE]') {
+                continue;
+              }
+              
+              try {
+                const json = JSON.parse(data);
+                
+                if (json.choices && json.choices[0] && json.choices[0].delta) {
+                  const delta = json.choices[0].delta;
+                  
+                  if (delta.content) {
+                    // 更新助手消息内容
+                    this.messages[assistantMessageIndex].content += delta.content;
+                    
+                    // 自动滚动到底部
+                    this.$nextTick(() => {
+                      this.scrollToBottom();
+                    });
+                  }
+                }
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', data, e);
+              }
+            }
+          }
+        }
+        
+        // 如果助手消息为空，说明出错了
+        if (!this.messages[assistantMessageIndex].content) {
+          throw new Error('未收到有效响应');
         }
         
         // 保存对话
@@ -346,8 +395,8 @@ createApp({
         console.error('Send message error:', error);
         alert('发送消息失败: ' + error.message);
         
-        // 移除用户消息
-        this.messages.pop();
+        // 移除用户消息和空的助手消息
+        this.messages.splice(assistantMessageIndex - 1, 2);
       } finally {
         this.isGenerating = false;
         this.$nextTick(() => {
