@@ -732,3 +732,183 @@ createApp({
   --code-bg: #f6f8fa;
   --code-toolbar-bg: #fff;
 }
+
+/* Preset 选择器样式 */
+.preset-selector {
+  position: relative;
+  margin-left: 1rem;
+}
+
+.preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  background: var(--secondary-bg);
+  border-color: var(--primary-color);
+}
+
+.preset-btn i:last-child {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.preset-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 250px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.preset-list {
+  padding: 0.5rem;
+}
+
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-item:hover {
+  background: var(--secondary-bg);
+}
+
+.preset-item.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.preset-item i {
+  font-size: 1rem;
+  width: 1rem;
+}
+
+.preset-item span {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+/* 临时对话标识 */
+.temp-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  margin-left: 1rem;
+  border-radius: 12px;
+  background: #fbbf24;
+  color: #78350f;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.temp-badge i {
+  font-size: 0.875rem;
+}
+
+/* 聊天头部布局优化 */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 侧边栏对话项删除按钮 */
+.conversation-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.conversation-item:hover {
+  background: var(--secondary-bg);
+}
+
+.conversation-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.delete-btn {
+  opacity: 0;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  background: #dc2626;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .header-center {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .preset-selector {
+    margin-left: 0;
+  }
+  
+  .temp-badge {
+    margin-left: 0;
+  }
+}

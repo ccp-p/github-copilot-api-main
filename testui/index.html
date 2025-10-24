@@ -45,11 +45,19 @@
             <p>还没有对话记录</p>
           </div>
           <div v-else class="conversation-list">
-            <div v-for="conv in conversations" :key="conv.id" 
-                 class="conversation-item"
-                 @click="loadConversation(conv.id)">
-              <div class="conversation-title">{{ conv.title }}</div>
-              <div class="conversation-time">{{ formatTime(conv.timestamp) }}</div>
+            <div 
+              v-for="conv in conversations" 
+              :key="conv.id"
+              class="conversation-item"
+              :class="{ active: conv.id === currentConversationId }"
+            >
+              <div class="conversation-info" @click="loadConversation(conv.id)">
+                <div class="conversation-title">{{ conv.title }}</div>
+                <div class="conversation-time">{{ formatTime(conv.timestamp) }}</div>
+              </div>
+              <button class="delete-btn" @click.stop="deleteConversation(conv.id)">
+                <i class="bi bi-trash"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -88,6 +96,64 @@
 
         <!-- 聊天界面 -->
         <div v-else class="chat-container">
+          <!-- 聊天头部 -->
+          <div class="chat-header">
+            <button class="icon-btn" @click="showSidebar = !showSidebar" title="对话历史">
+              <i class="bi bi-list"></i>
+            </button>
+            
+            <div class="header-center">
+              <!-- 模型选择器 -->
+              <div class="model-selector" v-if="selectedModel">
+                <button class="model-btn" @click="showModelSelector = !showModelSelector">
+                  <i class="bi bi-cpu"></i>
+                  <span>{{ selectedModel.name }}</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+              </div>
+              
+              <!-- Preset 选择器 -->
+              <div class="preset-selector">
+                <button class="preset-btn" @click="showPresetSelector = !showPresetSelector">
+                  <i class="bi bi-person-circle"></i>
+                  <span>{{ selectedPresetName || '选择角色' }}</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+                
+                <!-- Preset 下拉菜单 -->
+                <div class="preset-dropdown" v-show="showPresetSelector" @click.stop>
+                  <div class="preset-list">
+                    <button 
+                      v-for="preset in allPresets" 
+                      :key="preset.id"
+                      class="preset-item"
+                      :class="{ active: preset.id === selectedPresetId }"
+                      @click="selectPreset(preset.id)"
+                    >
+                      <span class="preset-icon">{{ preset.icon }}</span>
+                      <span class="preset-name">{{ preset.name }}</span>
+                      <i class="bi bi-check2" v-if="preset.id === selectedPresetId"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 临时对话标识 -->
+              <span v-if="isTemporaryConversation" class="temp-badge" title="临时对话，刷新页面后将消失">
+                <i class="bi bi-clock-history"></i> 临时
+              </span>
+            </div>
+            
+            <div class="header-actions">
+              <button class="icon-btn" @click="newTemporaryConversation" title="新建临时对话">
+                <i class="bi bi-chat-dots"></i>
+              </button>
+              <button class="icon-btn" @click="newConversation" title="新建对话">
+                <i class="bi bi-plus-circle"></i>
+              </button>
+            </div>
+          </div>
+
           <!-- 消息列表 -->
           <div class="messages-container" ref="messagesContainer">
             <div v-if="messages.length === 0" class="welcome-screen">

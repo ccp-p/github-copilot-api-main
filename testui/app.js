@@ -12,6 +12,7 @@ createApp({
       showSettings: false,
       showSidebar: false,
       showModelSelector: false,
+      showPresetSelector: false,
       theme: 'light',
       
       // 模型相关
@@ -32,6 +33,7 @@ createApp({
       // 历史对话
       conversations: [],
       currentConversationId: null,
+      isTemporaryConversation: false,
       
       // 生成参数
       temperature: 0.8,
@@ -139,6 +141,9 @@ createApp({
       const savedPresetId = localStorage.getItem('selected_preset_id');
       if (savedPresetId && this.allPresets.find(p => p.id === savedPresetId)) {
         this.selectedPresetId = savedPresetId;
+      } else if (this.allPresets.length > 0) {
+        // 如果没有保存的 preset，默认选择第一个
+        this.selectedPresetId = this.allPresets[0].id;
       }
       
       // 恢复用户选择的模型
@@ -248,6 +253,7 @@ createApp({
     
     selectPreset(presetId) {
       this.selectedPresetId = presetId;
+      this.showPresetSelector = false;
     },
     
     selectModel(modelId) {
@@ -618,7 +624,40 @@ createApp({
       localStorage.removeItem('conversations');
     },
     
+    newTemporaryConversation() {
+      if (this.messages.length > 0 && !this.isTemporaryConversation) {
+        if (!confirm('当前对话未保存，确定要创建新的临时对话吗？')) {
+          return;
+        }
+      }
+      
+      this.messages = [];
+      this.currentConversationId = null;
+      this.isTemporaryConversation = true;
+      this.showSidebar = false;
+      
+      // 可以选择重置 preset 或保持当前选择
+      // this.selectedPresetId = this.allPresets[0]?.id || '';
+    },
+    
+    newConversation() {
+      if (this.messages.length > 0 && !this.isTemporaryConversation) {
+        // 如果当前有对话且不是临时对话，先保存
+        this.saveCurrentConversation();
+      }
+      
+      this.messages = [];
+      this.currentConversationId = null;
+      this.isTemporaryConversation = false;
+      this.showSidebar = false;
+    },
+    
     saveCurrentConversation() {
+      // 临时对话不保存
+      if (this.isTemporaryConversation) {
+        return;
+      }
+      
       if (this.messages.length === 0) return;
       
       const title = this.messages[0].content.substring(0, 30) + '...';
@@ -682,6 +721,7 @@ createApp({
       if (conv) {
         this.messages = [...conv.messages];
         this.currentConversationId = conv.id;
+        this.isTemporaryConversation = false;
         
         // 恢复预设和模型
         if (conv.presetId) {
@@ -691,9 +731,27 @@ createApp({
           this.selectedModelId = conv.modelId;
         }
         
+        this.showSidebar = false;
+        
         this.$nextTick(() => {
           this.scrollToBottom();
         });
+      }
+    },
+    
+    deleteConversation(conversationId) {
+      if (!confirm('确定要删除这个对话吗？')) return;
+      
+      const index = this.conversations.findIndex(c => c.id === conversationId);
+      if (index !== -1) {
+        this.conversations.splice(index, 1);
+        this.saveConversationsToStorage();
+        
+        // 如果删除的是当前对话，清空消息
+        if (this.currentConversationId === conversationId) {
+          this.messages = [];
+          this.currentConversationId = null;
+        }
       }
     },
   },
