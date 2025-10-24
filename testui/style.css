@@ -104,14 +104,6 @@ createApp({
   
   mounted() {
     this.init();
-    
-    // 添加代码复制事件监听
-    document.addEventListener('click', this.copyCode);
-  },
-  
-  beforeUnmount() {
-    // 移除事件监听
-    document.removeEventListener('click', this.copyCode);
   },
   
   methods: {
@@ -478,9 +470,7 @@ createApp({
     formatMessage(content) {
       if (typeof marked !== 'undefined') {
         try {
-          const html = marked.parse(content);
-          // 为代码块添加复制按钮和语言标签
-          return this.addCodeBlockEnhancements(html);
+          return marked.parse(content);
         } catch (error) {
           return this.escapeHtml(content).replace(/\n/g, '<br>');
         }
@@ -488,82 +478,6 @@ createApp({
       return this.escapeHtml(content).replace(/\n/g, '<br>');
     },
     
-    addCodeBlockEnhancements(html) {
-      // 使用 DOM 解析器处理 HTML
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      
-      // 查找所有代码块
-      const codeBlocks = doc.querySelectorAll('pre code');
-      
-      codeBlocks.forEach((codeBlock, index) => {
-        const pre = codeBlock.parentElement;
-        
-        // 获取语言类型
-        let language = 'text';
-        const classList = Array.from(codeBlock.classList);
-        const langClass = classList.find(cls => cls.startsWith('language-'));
-        if (langClass) {
-          language = langClass.replace('language-', '');
-        }
-        
-        // 获取代码内容
-        const code = codeBlock.textContent;
-        
-        // 创建包装容器
-        const wrapper = doc.createElement('div');
-        wrapper.className = 'code-block-wrapper';
-        
-        // 创建头部工具栏
-        const toolbar = doc.createElement('div');
-        toolbar.className = 'code-block-toolbar';
-        
-        // 创建语言标签
-        const langLabel = doc.createElement('span');
-        langLabel.className = `code-lang code-lang-${language}`;
-        langLabel.textContent = language.toUpperCase();
-        
-        // 创建复制按钮
-        const copyBtn = doc.createElement('button');
-        copyBtn.className = 'code-copy-btn';
-        copyBtn.setAttribute('data-code', code);
-        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
-        
-        toolbar.appendChild(langLabel);
-        toolbar.appendChild(copyBtn);
-        
-        // 将 pre 元素包装起来
-        pre.parentNode.insertBefore(wrapper, pre);
-        wrapper.appendChild(toolbar);
-        wrapper.appendChild(pre);
-      });
-      
-      return doc.body.innerHTML;
-    },
-    
-    copyCode(event) {
-      const button = event.target.closest('.code-copy-btn');
-      if (!button) return;
-      
-      const code = button.getAttribute('data-code');
-      
-      // 使用 Clipboard API 复制
-      navigator.clipboard.writeText(code).then(() => {
-        // 显示复制成功提示
-        const originalHTML = button.innerHTML;
-        button.innerHTML = '<i class="bi bi-check2"></i> 已复制';
-        button.classList.add('copied');
-        
-        setTimeout(() => {
-          button.innerHTML = originalHTML;
-          button.classList.remove('copied');
-        }, 2000);
-      }).catch(err => {
-        console.error('复制失败:', err);
-        alert('复制失败，请手动复制');
-      });
-    },
-
     escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -698,3 +612,123 @@ createApp({
     },
   },
 }).mount('#app');
+/* 代码块增强样式 */
+.code-block-wrapper {
+  position: relative;
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+}
+
+.code-block-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--code-toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.code-lang {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 不同编程语言的颜色 */
+.code-lang-javascript,
+.code-lang-js { background: #f7df1e; color: #000; }
+
+.code-lang-python,
+.code-lang-py { background: #3776ab; color: #fff; }
+
+.code-lang-java { background: #007396; color: #fff; }
+
+.code-lang-cpp,
+.code-lang-c { background: #00599c; color: #fff; }
+
+.code-lang-csharp,
+.code-lang-cs { background: #239120; color: #fff; }
+
+.code-lang-php { background: #777bb4; color: #fff; }
+
+.code-lang-ruby,
+.code-lang-rb { background: #cc342d; color: #fff; }
+
+.code-lang-go { background: #00add8; color: #fff; }
+
+.code-lang-rust { background: #ce422b; color: #fff; }
+
+.code-lang-typescript,
+.code-lang-ts { background: #3178c6; color: #fff; }
+
+.code-lang-html { background: #e34c26; color: #fff; }
+
+.code-lang-css { background: #264de4; color: #fff; }
+
+.code-lang-json { background: #5a5a5a; color: #fff; }
+
+.code-lang-xml { background: #f37726; color: #fff; }
+
+.code-lang-sql { background: #f29111; color: #fff; }
+
+.code-lang-bash,
+.code-lang-shell,
+.code-lang-sh { background: #4eaa25; color: #fff; }
+
+.code-lang-text,
+.code-lang { background: var(--secondary-bg); color: var(--text-secondary); }
+
+.code-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.code-copy-btn:hover {
+  background: var(--secondary-bg);
+  border-color: var(--primary-color);
+}
+
+.code-copy-btn.copied {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+}
+
+.code-block-wrapper pre code {
+  display: block;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+/* 深色模式调整 */
+[data-theme="dark"] {
+  --code-bg: #1e1e1e;
+  --code-toolbar-bg: #2d2d2d;
+}
+
+[data-theme="light"] {
+  --code-bg: #f6f8fa;
+  --code-toolbar-bg: #fff;
+}
