@@ -4,8 +4,9 @@ class CopilotChat {
     this.isAuthenticated = false;
     this.models = [];
     this.currentToken = null;
-        this.conversationHistory = []; // 新增：对话历史
-    this.maxHistoryLength = 50; // 新增：最大历史记录数
+    this.conversationHistory = [];
+    this.maxHistoryLength = 50;
+    this.useHistory = false; // 新增：历史记录开关，默认关闭
     
     this.init();
   }
@@ -58,16 +59,23 @@ class CopilotChat {
     
     chatContainer.innerHTML = '';
     
+    if (this.conversationHistory.length === 0) {
+      chatContainer.innerHTML = `<p class="text-muted text-center">No conversation history yet. Start chatting!</p>`;
+      return;
+    }
+    
     this.conversationHistory.forEach(message => {
       if (message.role === 'user' || message.role === 'assistant') {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${message.role}-message`;
+        messageDiv.className = `chat-message ${message.role}-message mb-3`;
         messageDiv.innerHTML = `
-          <div class="message-header">
-            <strong>${message.role === 'user' ? '👤 You' : '🤖 Assistant'}</strong>
+          <div class="message-header d-flex justify-content-between align-items-center mb-2">
+            <strong class="message-role">
+              ${message.role === 'user' ? '👤 You' : '🤖 Assistant'}
+            </strong>
             <small class="text-muted">${new Date(message.timestamp).toLocaleTimeString()}</small>
           </div>
-          <div class="message-content">${this.formatMessageContent(message.content)}</div>
+          <div class="message-content markdown-body">${this.formatMessageContent(message.content)}</div>
         `;
         chatContainer.appendChild(messageDiv);
       }
@@ -130,32 +138,45 @@ createChatInterface() {
   chatHistoryContainer.className = 'mb-3';
   chatHistoryContainer.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <label class="form-label mb-0">Chat History</label>
+      <label class="form-label mb-0">
+        Chat History
+        <span class="badge bg-secondary ms-2" id="history-status">Disabled</span>
+      </label>
       <div class="btn-group" role="group">
-        <button type="button" class="btn btn-outline-info btn-sm" id="toggle-history">
-          <i class="bi bi-eye"></i> Toggle History
+        <button type="button" class="btn btn-outline-primary btn-sm" id="toggle-history-mode">
+          <i class="bi bi-toggle-off"></i> Enable History
+        </button>
+        <button type="button" class="btn btn-outline-info btn-sm" id="toggle-history-display">
+          <i class="bi bi-eye"></i> Show
         </button>
         <button type="button" class="btn btn-outline-warning btn-sm" id="clear-history">
-          <i class="bi bi-trash"></i> Clear History
+          <i class="bi bi-trash"></i> Clear
         </button>
       </div>
     </div>
-    <div id="chat-history" class="chat-history-container" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 1rem; background-color: var(--bs-body-bg);">
+    <div id="chat-history" class="chat-history-container" style="display: none; max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 1rem; background-color: var(--bs-body-bg);">
       <p class="text-muted text-center">No conversation history yet. Start chatting!</p>
     </div>
   `;
   
   userMessageContainer.parentElement.insertBefore(chatHistoryContainer, userMessageContainer);
   
+  // 恢复历史记录开关状态
+  this.restoreHistoryMode();
+  
   // 绑定事件
-  document.getElementById('toggle-history').addEventListener('click', () => {
+  document.getElementById('toggle-history-mode').addEventListener('click', () => {
+    this.toggleHistoryMode();
+  });
+  
+  document.getElementById('toggle-history-display').addEventListener('click', () => {
     const historyContainer = document.getElementById('chat-history');
     if (historyContainer.style.display === 'none') {
       historyContainer.style.display = 'block';
-      document.getElementById('toggle-history').innerHTML = '<i class="bi bi-eye-slash"></i> Hide History';
+      document.getElementById('toggle-history-display').innerHTML = '<i class="bi bi-eye-slash"></i> Hide';
     } else {
       historyContainer.style.display = 'none';
-      document.getElementById('toggle-history').innerHTML = '<i class="bi bi-eye"></i> Show History';
+      document.getElementById('toggle-history-display').innerHTML = '<i class="bi bi-eye"></i> Show';
     }
   });
   
@@ -713,12 +734,17 @@ async sendMessage() {
       messages.push({ role: 'system', content: systemMessage });
     }
     
-    // 添加历史对话（只包含用户和助手的消息）
-    this.conversationHistory.forEach(msg => {
-      if (msg.role === 'user' ) {
-        messages.push({ role: msg.role, content: msg.content });
-      }
-    });
+    // 只有在开启历史记录时才添加历史对话
+    if (this.useHistory) {
+      this.conversationHistory.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({ role: msg.role, content: msg.content });
+        }
+      });
+    } else {
+      // 如果未开启历史记录，只发送当前用户消息
+      messages.push({ role: 'user', content: userMessage });
+    }
 
     const response = await fetch(`${this.apiBaseUrl}/chat/completions`, {
       method: 'POST',
