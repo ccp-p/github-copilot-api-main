@@ -165,8 +165,12 @@ createApp({
     },
     
     loadPresets() {
-      // 从 presets.js 加载预设
-      if (window.SYSTEM_MESSAGE_PRESETS) {
+      // 从 PresetManager 加载所有预设(包括内置和自定义)
+      if (window.presetManager) {
+        window.presetManager.loadCustomPresets(); // 先加载自定义预设
+        this.allPresets = window.presetManager.getAllPresets();
+      } else if (window.SYSTEM_MESSAGE_PRESETS) {
+        // 降级方案:直接使用全局数组
         this.allPresets = window.SYSTEM_MESSAGE_PRESETS;
       }
     },
