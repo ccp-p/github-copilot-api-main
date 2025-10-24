@@ -162,7 +162,6 @@ createChatInterface() {
   userMessageContainer.parentElement.insertBefore(chatHistoryContainer, userMessageContainer);
   
   // 恢复历史记录开关状态
-  this.restoreHistoryMode();
   
   // 绑定事件
   document.getElementById('toggle-history-mode').addEventListener('click', () => {
@@ -817,65 +816,129 @@ renderFormattedResponse(text, container) {
   // 如果页面已经引入了 marked.js，使用 Markdown 渲染
   if (typeof marked !== 'undefined') {
     try {
+      // 配置 marked 选项
+      marked.setOptions({
+        highlight: function(code, lang) {
+          if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+            try {
+              return hljs.highlight(code, { language: lang }).value;
+            } catch (e) {
+              return code;
+            }
+          }
+          return code;
+        },
+        breaks: true,
+        gfm: true
+      });
+      
       const htmlContent = marked.parse(text);
-      container.innerHTML = `<div class="formatted-response">${htmlContent}</div>`;
+      container.innerHTML = `<div class="formatted-response markdown-body">${htmlContent}</div>`;
+      
+      // 为代码块添加复制按钮
+      this.addCopyButtonsToCodeBlocks(container);
     } catch (error) {
-      // 如果 Markdown 解析失败，使用基础格式化
-      container.innerHTML = `<div class="formatted-response">${this.basicFormatText(text)}</div>`;
+      container.innerHTML = `<div class="formatted-response markdown-body">${this.basicFormatText(text)}</div>`;
     }
   } else {
-    // 使用基础格式化
-    container.innerHTML = `<div class="formatted-response">${this.basicFormatText(text)}</div>`;
+    container.innerHTML = `<div class="formatted-response markdown-body">${this.basicFormatText(text)}</div>`;
   }
   
   // 自动滚动到底部
   container.scrollTop = container.scrollHeight;
 }
 
-// 新增：基础文本格式化方法
+// 新增：为代码块添加复制按钮
+addCopyButtonsToCodeBlocks(container) {
+  const codeBlocks = container.querySelectorAll('pre code');
+  codeBlocks.forEach((codeBlock) => {
+    const pre = codeBlock.parentElement;
+    if (!pre.querySelector('.copy-code-btn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-code-btn btn btn-sm btn-outline-secondary';
+      copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+          copyBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+          setTimeout(() => {
+            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+          }, 2000);
+        });
+      };
+      pre.style.position = 'relative';
+      pre.appendChild(copyBtn);
+    }
+  });
+}
+
+// 优化：改进基础文本格式化方法
 basicFormatText(text) {
-  return text
-    // 转义 HTML 特殊字符
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    
-    // 处理标题
-    .replace(/^### (.+)$/gm, '<h3 class="response-h3">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="response-h2">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="response-h1">$1</h1>')
-    
-    // 处理粗体和斜体
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    
-    // 处理代码块
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="code-block"><code class="language-$1">$2</code></pre>')
-    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    
-    // 处理列表
-    .replace(/^- (.+)$/gm, '<li class="list-item">$1</li>')
-    .replace(/(<li class="list-item">.*<\/li>)/s, '<ul class="response-list">$1</ul>')
-    
-    // 处理表格（简单处理）
-    .replace(/\|(.+)\|/g, (match, content) => {
-      const cells = content.split('|').map(cell => `<td>${cell.trim()}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    })
-    
-    // 处理换行
-    .replace(/\n\n/g, '</p><p class="response-paragraph">')
-    .replace(/\n/g, '<br>')
-    
-    // 包装段落
-    .replace(/^/, '<p class="response-paragraph">')
-    .replace(/$/, '</p>');
+  // 转义 HTML
+  const escapeHtml = (str) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  // 处理代码块
+  text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+    const escapedCode = escapeHtml(code);
+    const language = lang || 'plaintext';
+    return `<pre class="code-block"><code class="language-${language}">${escapedCode}</code></pre>`;
+  });
+
+  // 处理行内代码
+  text = text.replace(/`([^`]+)`/g, (match, code) => {
+    return `<code class="inline-code">${escapeHtml(code)}</code>`;
+  });
+
+  // 转义剩余的文本（排除已处理的 HTML 标签）
+  const parts = text.split(/(<pre class="code-block">[\s\S]*?<\/pre>|<code class="inline-code">[\s\S]*?<\/code>)/);
+  text = parts.map((part, index) => {
+    if (index % 2 === 0) {
+      return escapeHtml(part);
+    }
+    return part;
+  }).join('');
+
+  // 处理标题
+  text = text.replace(/^### (.+)$/gm, '<h3 class="response-h3">$1</h3>');
+  text = text.replace(/^## (.+)$/gm, '<h2 class="response-h2">$1</h2>');
+  text = text.replace(/^# (.+)$/gm, '<h1 class="response-h1">$1</h1>');
+
+  // 处理粗体和斜体
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // 处理链接
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // 处理列表
+  text = text.replace(/^[\*\-] (.+)$/gm, '<li class="list-item">$1</li>');
+  text = text.replace(/((?:<li class="list-item">.*<\/li>\n?)+)/g, '<ul class="response-list">$1</ul>');
+
+  // 处理有序列表
+  text = text.replace(/^\d+\. (.+)$/gm, '<li class="list-item">$1</li>');
+
+  // 处理引用
+  text = text.replace(/^&gt; (.+)$/gm, '<blockquote class="response-quote">$1</blockquote>');
+
+  // 处理分割线
+  text = text.replace(/^---$/gm, '<hr class="response-hr">');
+
+  // 处理换行
+  text = text.replace(/\n\n/g, '</p><p class="response-paragraph">');
+  text = text.replace(/\n/g, '<br>');
+
+  // 包装段落
+  return `<p class="response-paragraph">${text}</p>`;
 }
 }
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-  new CopilotChat();
+  window.copilotChat = new CopilotChat();
 });
