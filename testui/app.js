@@ -550,16 +550,16 @@ createApp({
       
       return doc.body.innerHTML;
     },
-    copyCode(event) {
+    async copyCode(event) {
       const button = event.target.closest('.code-copy-btn');
       if (!button) return;
       
       const code = button.getAttribute('data-code');
       
       // 使用 Clipboard API 复制
-      navigator.clipboard.writeText(code).then(() => {
-        // 显示复制成功提示
-        const originalHTML = button.innerHTML;
+      try {
+        await navigator.clipboard.writeText(code);
+          const originalHTML = button.innerHTML;
         button.innerHTML = '<i class="bi bi-check2"></i> 已复制';
         button.classList.add('copied');
         
@@ -567,11 +567,14 @@ createApp({
           button.innerHTML = originalHTML;
           button.classList.remove('copied');
         }, 2000);
-      }).catch(err => {
+      } catch (err) {
         console.error('复制失败:', err);
         // 降级处理:使用旧的 execCommand 方法
         this.fallbackCopyTextToClipboard(code, button);
-      });
+        return;
+      }
+
+     
     },
 
     // 降级复制方法
