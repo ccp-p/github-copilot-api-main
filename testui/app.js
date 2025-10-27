@@ -550,55 +550,69 @@ createApp({
       
       return doc.body.innerHTML;
     },
-    async copyCode(code) {
-        try {
-            // 检查 clipboard API 是否可用
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(code);
-                console.log('复制成功');
-                // 这里可以调用你的成功提示方法
-                // this.showToast('复制成功');
-            } else {
-                // 降级处理：使用旧的 execCommand 方法
-                this.fallbackCopyTextToClipboard(code);
-            }
-        } catch (err) {
-            console.error('复制失败:', err);
-            // 降级处理：使用旧的 execCommand 方法
-            this.fallbackCopyTextToClipboard(code);
-        }
+    copyCode(event) {
+      const button = event.target.closest('.code-copy-btn');
+      if (!button) return;
+      
+      const code = button.getAttribute('data-code');
+      
+      // 使用 Clipboard API 复制
+      navigator.clipboard.writeText(code).then(() => {
+        // 显示复制成功提示
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check2"></i> 已复制';
+        button.classList.add('copied');
+        
+        setTimeout(() => {
+          button.innerHTML = originalHTML;
+          button.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('复制失败:', err);
+        // 降级处理:使用旧的 execCommand 方法
+        this.fallbackCopyTextToClipboard(code, button);
+      });
     },
 
     // 降级复制方法
-    fallbackCopyTextToClipboard(text) {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        
-        // 避免滚动到底部
-        textArea.style.top = "0";
-        textArea.style.left = "0";
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-            const successful = document.execCommand('copy');
-            if (successful) {
-                console.log('复制成功');
-                // this.showToast('复制成功');
-            } else {
-                console.error('复制失败');
-                // this.showToast('复制失败');
-            }
-        } catch (err) {
-            console.error('复制执行失败:', err);
-            // this.showToast('复制功能不可用');
+    fallbackCopyTextToClipboard(text, button) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      // 避免滚动到底部
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          console.log('复制成功');
+          if (button) {
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-check2"></i> 已复制';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+              button.innerHTML = originalHTML;
+              button.classList.remove('copied');
+            }, 2000);
+          }
+        } else {
+          console.error('复制失败');
+          alert('复制失败,请手动复制');
         }
-        
-        document.body.removeChild(textArea);
+      } catch (err) {
+        console.error('复制执行失败:', err);
+        alert('复制功能不可用');
+      }
+      
+      document.body.removeChild(textArea);
     },
     
 
