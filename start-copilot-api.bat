@@ -28,8 +28,12 @@ if not exist node_modules (
   )
 )
 
-:: 可以在此设置自定义的环境变量
-:: set GITHUB_CLIENT_ID=你的客户端ID
+:: 设置代理环境变量
+set HTTP_PROXY=http://127.0.0.1:7890
+set HTTPS_PROXY=http://127.0.0.1:7890
+set NO_PROXY=localhost,127.0.0.1
+
+echo [信息] 代理配置: %HTTP_PROXY%
 
 :: 启动服务
 echo [信息] 启动 GitHub Copilot API 服务...
