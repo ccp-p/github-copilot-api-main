@@ -18,9 +18,36 @@ jobs:
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
+          # 1. 取消环境变量中的代理设置 (如果有的话)
+          unset http_proxy
+          unset https_proxy
+          unset HTTP_PROXY
+          unset HTTPS_PROXY
+          
+          # 2. 清除 npm 代理配置 (如果之前设置了)
+          npm config delete proxy 2>/dev/null || true
+          npm config delete https-proxy 2>/dev/null || true
+          
+          # 3. 设置 npm 使用国内镜像源 (不通过代理)
+          npm config set registry https://registry.npmmirror.com/
+          
+          # 4. 清除 npm 缓存
+          npm cache clean --force
+          
+          # 5. 加载环境变量 (如果需要的话)
           source ~/.bash_profile
+          
+          # 6. 进入项目目录
           cd /www/wwwroot/github-copilot-api-main
+          
+          # 7. 拉取最新代码
           git pull origin main
+          
+          # 8. 安装依赖 (现在应该能通过国内镜像快速安装)
           npm install
+          
+          # 9. 重启或启动 PM2 应用
           pm2 restart copilot-api || pm2 start "npm start" --name copilot-api
+          
+          # 10. 输出完成信息
           echo "Deployment completed at $(date)"
